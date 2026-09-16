@@ -1,0 +1,211 @@
+---
+title: "DTS Configuration Files and Project Settings"
+sidebarTitle: "Configuration"
+description: "Understand DTS's two-layer config system: global AppConfig for credentials and Ollama settings, and per-project ProjectConfig for paths and translation."
+---
+
+DTS uses a **two-layer configuration system**. Global settings (`AppConfig`) are stored in the OS user config directory and hold credentials and connection details that apply across all projects. Per-project settings (`ProjectConfig`) live inside each project folder and control translation behaviour, file paths, and the active AI provider and model. Neither file is created by default — DTS generates them the first time you save settings.
+
+<Warning>
+  `AppConfig` stores your API keys in plain text. Never commit `%APPDATA%/dts/settings.json` (Windows) or `~/.config/dts/settings.json` (Linux/macOS) to version control or share it publicly.
+</Warning>
+
+---
+
+## AppConfig — Global Settings
+
+**File location:**
+- **Windows:** `%APPDATA%\dts\settings.json`
+- **Linux / macOS:** `~/.config/dts/settings.json`
+
+`AppConfig` holds provider credentials, Ollama connection parameters, and the path to your UndertaleModTool installation. It is never stored inside a project directory.
+
+### JSON Structure
+
+```json
+{
+  "providers": {
+    "gemini": {
+      "keys": [
+        { "name": "key1", "key": "AIzaSy...", "enabled": true },
+        { "name": "key2", "key": "AIzaSy...", "enabled": false }
+      ]
+    },
+    "groq": {
+      "keys": [
+        { "name": "main", "key": "gsk_...", "enabled": true }
+      ]
+    },
+    "anthropic": {
+      "keys": [
+        { "name": "primary", "key": "sk-ant-...", "enabled": true }
+      ]
+    }
+  },
+  "ollama_host": "http://localhost",
+  "ollama_port": 11434,
+  "ollama_timeout": 120,
+  "umt_directory": "C:/Tools/UMT",
+  "umt_auto_download": false
+}
+```
+
+### Fields
+
+<ParamField path="providers" type="object" default="{}">
+  Map of provider name to its list of API key entries. Each entry has `name` (label), `key` (the secret), and `enabled` (whether DTS will use it). Supported provider names: `gemini`, `groq`, `deepinfra`, `together`, `openai`, `anthropic`.
+</ParamField>
+
+<ParamField path="ollama_host" type="string" default="http://localhost">
+  Hostname or IP address of the Ollama server. Do not include the port here; use `ollama_port` instead.
+</ParamField>
+
+<ParamField path="ollama_port" type="integer" default="11434">
+  Port the Ollama server listens on.
+</ParamField>
+
+<ParamField path="ollama_timeout" type="integer" default="120">
+  Maximum number of seconds DTS waits for an Ollama response before aborting the request.
+</ParamField>
+
+<ParamField path="umt_directory" type="string" default='""'>
+  Absolute path to the folder containing the UndertaleModTool CLI installation (`UndertaleModCli.exe` and the `Scripts/` subdirectory).
+</ParamField>
+
+<ParamField path="umt_auto_download" type="boolean" default="false">
+  When `true`, DTS will offer to download UMT CLI automatically to `umt_directory` if the executable is not found.
+</ParamField>
+
+### CLI Management
+
+```bash
+# Display current global configuration (key counts, Ollama params, UMT path)
+dts config --show
+
+# Add a Gemini API key
+dts config --add-key "AIzaSyYour-Key-Here"
+
+# Change the Ollama host
+dts config --ollama-host "http://192.168.1.50"
+
+# Change the Ollama connection timeout
+dts config --ollama-timeout 240
+```
+
+---
+
+## ProjectConfig — Per-Project Settings
+
+**File location:** `<project-directory>/settings.json`
+
+`ProjectConfig` is specific to a single translation project. It records the paths to all working files, the chunk size used for batching, the active provider and model, and an optional translation prompt. It contains no API keys.
+
+### JSON Structure
+
+```json
+{
+  "route_strings_file": "strings.json",
+  "route_data_win": "C:/Games/Undertale/data.win",
+  "route_input_file": "lang_input.json",
+  "route_output_file": "lang_es_out.json",
+  "route_strings_result_file": "strings_es.json",
+  "route_normalize_file": "lang_es_normalize.json",
+  "route_manual_file": "lang_manual_edit.json",
+  "chunk_size": 200,
+  "provider": "gemini",
+  "prompt": "",
+  "model": "gemini-3.5-flash",
+  "single_translate": false,
+  "umt_directory": ""
+}
+```
+
+### Fields
+
+<ParamField path="route_strings_file" type="string" default="strings.json">
+  Path to the raw strings file extracted from `data.win`. Relative paths are resolved against the project directory.
+</ParamField>
+
+<ParamField path="route_data_win" type="string" default='""'>
+  Absolute or relative path to the game's `data.win` file. Required for UMT extraction and re-import steps.
+</ParamField>
+
+<ParamField path="route_input_file" type="string" default="lang_input.json">
+  Path to the generated translation input file (`{"key": "source text", ...}`).
+</ParamField>
+
+<ParamField path="route_output_file" type="string" default="lang_es_out.json">
+  Path where DTS writes the raw translation output from the AI provider.
+</ParamField>
+
+<ParamField path="route_strings_result_file" type="string" default="strings_es.json">
+  Path to the final translated strings file in the same format as `strings.json`, ready for re-import into `data.win`.
+</ParamField>
+
+<ParamField path="route_normalize_file" type="string" default="lang_es_normalize.json">
+  Path to the normalised translation file produced after post-processing.
+</ParamField>
+
+<ParamField path="route_manual_file" type="string" default="lang_manual_edit.json">
+  Path to the manual-edit file where missing or rejected translations can be corrected by hand.
+</ParamField>
+
+<ParamField path="chunk_size" type="integer" default="200">
+  Number of dialogue strings sent to the AI provider in a single API request. Smaller values reduce the risk of truncated responses; larger values are more efficient.
+</ParamField>
+
+<ParamField path="provider" type="string" default="gemini">
+  Active translation provider. One of: `gemini`, `ollama`, `groq`, `deepinfra`, `together`, `anthropic`, `openai`.
+</ParamField>
+
+<ParamField path="prompt" type="string" default='""'>
+  Custom system prompt prepended to every translation batch. When empty, DTS uses the built-in default prompt that instructs the model to preserve GameMaker commands (`\\XX`, `$~X`, `~X`, `^X`), suffixes (`/`, `%`, `/%`), and JSON structure.
+</ParamField>
+
+<ParamField path="model" type="string" default="gemini-3.5-flash">
+  Model identifier passed to the provider. Must be a valid model for the selected `provider`.
+</ParamField>
+
+<ParamField path="single_translate" type="boolean" default="false">
+  When `true`, DTS translates each dialogue string individually rather than in batches. Supported by Ollama. Useful for very long strings that overflow batch context windows.
+</ParamField>
+
+<ParamField path="umt_directory" type="string" default='""'>
+  Project-level override for the UMT CLI directory. When empty, DTS inherits `umt_directory` from `AppConfig`.
+</ParamField>
+
+### CLI Management
+
+```bash
+# Show the current project settings
+dts settings --show
+
+# Change the active provider
+dts settings --provider groq
+
+# Change the model
+dts settings --model "deepseek-ai/DeepSeek-V4-Flash"
+
+# Change the batch chunk size
+dts settings --chunk-size 150
+```
+
+---
+
+## Project File Structure
+
+Every DTS project is a directory containing the following files. Paths for each file are configurable in `ProjectConfig` — the names below are the defaults.
+
+| File | Role | Format |
+|---|---|---|
+| `strings.json` | All strings extracted from `data.win` | `{"Strings": ["id1", "dialog text", ...]}` |
+| `lang_input.json` | Generated translation input | `{"key_id": "source dialogue", ...}` |
+| `lang_es_out.json` | Raw translation output from AI | `{"key_id": "translated dialogue", ...}` |
+| `lang_es_normalize.json` | Post-processed normalised output | Same format as `lang_es_out.json` |
+| `strings_es.json` | Final strings ready for re-import | Same format as `strings.json` |
+| `lang_manual_edit.json` | Hand-corrected overrides | Same format as `lang_es_out.json` |
+| `settings.json` | Project configuration | See ProjectConfig JSON above |
+
+<Accordion title="About relative vs absolute paths">
+  All `route_*` fields accept either a relative path (resolved against the project directory) or an absolute path. For example, `"route_data_win": "data.win"` resolves to `<project-dir>/data.win`, while `"route_data_win": "C:/Games/Undertale/data.win"` is used as-is. Relative paths are recommended for portability.
+</Accordion>

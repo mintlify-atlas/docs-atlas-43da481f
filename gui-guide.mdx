@@ -1,0 +1,220 @@
+---
+title: "Using the DTS Graphical Interface"
+sidebarTitle: "GUI Guide"
+description: "A complete walkthrough of the DTS GUI: welcome screen, project tabs, translation controls, review workflow, export options, and global settings."
+---
+
+The DTS graphical interface provides a visual front-end for the entire translation pipeline — from importing a `data.win` file all the way through reviewing translations and exporting the final result. It is built with Tkinter and ttkbootstrap and opens automatically when you run `dts` with no command-line arguments.
+
+```bash
+dts
+```
+
+The window opens at **1200 × 800** pixels (minimum 900 × 600) with a dark theme.
+
+---
+
+## First-Time Setup
+
+<Steps>
+  <Step title="Launch the GUI">
+    Run `dts` with no arguments from your terminal. The **Welcome** screen appears.
+  </Step>
+  <Step title="Create or open a project">
+    Click **Crear proyecto** (Create project) to pick a parent folder and enter a project name, or click **Abrir proyecto** (Open project) to select an existing project directory. DTS stores a `settings.json` inside the project folder to remember your configuration.
+  </Step>
+  <Step title="Configure your AI provider">
+    Click **Configuración global** (Global Settings) from the welcome screen. In the **Proveedor de IA** tab, select your preferred provider from the left-hand list and add your API key(s). For Ollama, configure the host, port, and timeout instead.
+  </Step>
+  <Step title="Set up UMT (optional but recommended)">
+    Switch to the **Motor (UMT)** tab in Global Settings. Either browse to your existing UndertaleModTool CLI folder or click **Descargar UMT CLI** to let DTS download and extract the correct build for your platform automatically.
+  </Step>
+  <Step title="Import the game's string table">
+    Inside your project, go to the **Resumen** tab and click **Seleccionar data.win**. If UMT is configured, DTS extracts `strings.json` and generates `lang_input.json` automatically. Without UMT, click **Cargar strings.json manualmente** to point DTS at a pre-extracted file.
+  </Step>
+  <Step title="Run translation">
+    Go to the **Traducir** tab. Select your provider and model, adjust the chunk size if needed, then click **Iniciar traducción**. Progress is shown in a striped progress bar with live log output.
+  </Step>
+  <Step title="Export the result">
+    Once translation is complete, go to the **Exportar** tab. Choose whether to export a `strings_es.json` file, a full translated `data.win`, or a patch to apply to another `data.win` file.
+  </Step>
+</Steps>
+
+---
+
+## Welcome Screen
+
+The welcome screen is the first thing you see each time DTS opens. It has three action buttons and a recent-projects list.
+
+<CardGroup cols={3}>
+  <Card title="Abrir proyecto" icon="folder-open">
+    Opens a file dialog to select an existing project directory. If the folder exists but has no `settings.json`, DTS offers to initialize it as a new project.
+  </Card>
+  <Card title="Crear proyecto" icon="plus">
+    Asks you to choose a parent folder and enter a project name. DTS creates the directory, writes a default `settings.json`, and opens the project view.
+  </Card>
+  <Card title="Configuración global" icon="gear">
+    Opens the Global Settings dialog where you manage API keys, Ollama connection details, and the UMT path — settings that apply to all projects.
+  </Card>
+</CardGroup>
+
+Below the buttons, a **Proyectos recientes** (Recent projects) panel shows up to ten previously opened project directories. Double-click any entry to reopen it instantly. Entries whose directories no longer exist are hidden automatically.
+
+---
+
+## Project View
+
+After opening or creating a project, the main project view appears with five tabs across the top.
+
+### Resumen (Overview)
+
+The Overview tab is your project dashboard. It is divided into three sections.
+
+**Información del proyecto** shows read-only key-value pairs for:
+- Project directory path
+- Active AI provider and model
+- Chunk size
+- `data.win` path (if selected)
+- Total strings in `strings.json` and total dialogue entries in `lang_input.json`
+
+**Estado del pipeline** (Pipeline status) shows a one-line status strip with a tick or cross for each stage: `data.win` selected, `strings.json` extracted, `lang_input.json` generated, and `lang_es_out.json` translated.
+
+**Acciones** (Actions) provides three buttons:
+
+| Button | What it does |
+|--------|-------------|
+| **Seleccionar data.win** | Opens a file picker for `*.win` files. If UMT is configured, strings are extracted automatically and `lang_input.json` is generated. If UMT is missing, a dialog asks whether to load an existing `strings.json` or go to UMT settings. |
+| **Cargar strings.json manualmente** | Lets you point DTS at a pre-extracted `strings.json` and immediately generates `lang_input.json` from it. |
+| **Ver diálogos** | Opens a read-only popup window showing all key-value pairs from `lang_input.json` alongside any existing translations from `lang_es_out.json`. |
+
+---
+
+### Traducir (Translate)
+
+The Translate tab is where you start and monitor the AI translation process.
+
+**Configuration controls** (saved to `settings.json` on every change):
+
+| Control | Description |
+|---------|-------------|
+| **Proveedor** | Drop-down listing only providers that have at least one active API key (or Ollama if the local server is reachable). |
+| **Modelo** | Drop-down populated from the selected provider's model list. For Ollama, DTS queries the local server for installed models. |
+| **Chunk size** | Spin-box (10–1000, step 10). Number of dialogue strings sent per API request. Default: `200`. |
+| **Traducir diálogo por diálogo** | Toggle visible only when **Ollama** is selected. Sends one dialogue at a time as plain text instead of batching JSON — useful for small local models that struggle with structured output. |
+
+A **striped progress bar** and a status label track current progress (`Traduciendo... N / Total`).
+
+The **Iniciar traducción** button starts a background translation thread. While running it becomes **Cancelar** (styled in red). Clicking it signals a cancellation; DTS completes the current batch before stopping.
+
+The bottom of the tab has two sub-panels:
+
+- **Prompt**: read-only text view showing the batch prompt and the Ollama single-dialogue prompt side by side.
+- **Logs**: scrolling log output in monospace font. All Python log messages (including retry warnings and chunk completion confirmations) appear here in real time.
+
+<Warning>
+  Closing the project or the application while translation is running will abort the current batch. Because `lang_es_out.json` is updated after each successful batch, you will not lose already-translated entries.
+</Warning>
+
+---
+
+### Diálogos (Dialogs)
+
+The Dialogs tab is accessible as a popup from the **Resumen** tab's **Ver diálogos** button. It opens a separate window with a full-screen three-column table:
+
+| Column | Content |
+|--------|---------|
+| **Key ID** | The internal GameMaker key, e.g. `undertale_slash_room_gml_42_0` |
+| **Original** | The source English dialogue string |
+| **Traducción** | The translated value from `lang_es_out.json`, or blank if not yet translated |
+
+A summary bar at the top shows total / translated / pending counts. The window is modal (blocks interaction with the main window until closed).
+
+---
+
+### Revisión (Review)
+
+The Review tab provides an inline editing workflow for translations that need human attention. It identifies three categories of pending entries:
+
+- Keys not yet present in `lang_es_out.json`
+- Keys whose translated value is empty or structurally void
+- Keys that have unsaved manual edits in `lang_manual_edit.json`
+
+**Controls:**
+
+| Element | Behaviour |
+|---------|-----------|
+| **Pull pendientes** | Runs the same logic as `dts pull-manual`: generates `lang_manual_edit.json` with all untranslated keys. |
+| **Guardar cambios** | Applies every entry in `lang_manual_edit.json` into `lang_es_out.json` (equivalent to `dts apply-manual`). |
+| **Mostrar solo pendientes** | Toggle that filters the table to show only rows that need attention. On by default. |
+
+**Table colour coding:**
+- Dark orange background — key is untranslated or has a pending manual edit
+- Dark red background — key's translation exists but is structurally void
+
+**Inline editing:** double-click any row to open an edit dialog pre-filled with the current translation. Press **Guardar** (or `Ctrl+Enter`) to save the change directly to `lang_manual_edit.json`.
+
+---
+
+### Exportar (Export)
+
+The Export tab offers three distinct export modes.
+
+<CardGroup cols={1}>
+  <Card title="Exportar como strings_es.json" icon="file-export">
+    Merges translations into the original string table and saves the result as a `strings_es.json` file you can drop into your GameMaker project. Includes a **Normalizar caracteres especiales** toggle (enabled by default) that strips non-ASCII characters for engines without Unicode support.
+  </Card>
+  <Card title="Exportar como data.win" icon="database">
+    Requires UMT to be configured and a `data.win` to be selected in the Overview tab. Generates a new `data.win` file with all translated strings imported back via the UMT CLI. A save-as dialog lets you choose the output path.
+  </Card>
+  <Card title="Parchear otro data.win" icon="code-branch">
+    Lets you select any `data.win` — not necessarily the same one you extracted from. DTS extracts that file's string table, merges in your translations, and produces a patched `data.win`. Useful for applying one translation project to multiple game builds.
+  </Card>
+</CardGroup>
+
+<Info>
+  All three export modes run the UMT import/export operations on a background thread so the GUI stays responsive. A status label at the top of the tab updates in real time.
+</Info>
+
+---
+
+## Global Settings Dialog
+
+The Global Settings dialog is opened from the Welcome screen's **Configuración global** button, or from inside a project. It has three tabs.
+
+### Provider Tab (Proveedor de IA)
+
+A two-panel layout: a narrow left list of providers, and a scrollable configuration panel on the right. Click any provider name in the list to load its settings.
+
+**Cloud providers** (Gemini, Groq, DeepInfra, Together AI, Anthropic, OpenAI) each show:
+- A labelled API key list with an **enabled** toggle, a **name** field, and a masked **key** field (with an eye button to reveal)
+- **+ Agregar key** / **− Eliminar seleccionada** buttons to manage the key pool
+- A model checklist showing available models for that provider
+
+Multiple API keys can be added to providers that support it (e.g. Gemini). DTS rotates through enabled keys automatically when a request fails.
+
+**Ollama** (local provider) shows connection fields instead:
+- **Host** — base URL of the Ollama server (default: `http://localhost`)
+- **Puerto** — port number (default: `11434`)
+- **Timeout (s)** — request timeout in seconds (default: `120`)
+- **Detectar modelos instalados** — queries the Ollama API and lists all locally available models with enable/disable toggles
+
+### Project Tab (Configuración del Proyecto)
+
+A read-only summary of the currently open project's configuration: provider, model, chunk size, and all file paths (`strings.json`, `lang_input.json`, `lang_es_out.json`, `lang_es_normalize.json`, `strings_es.json`).
+
+<Note>
+  File paths shown here are relative to the project directory. They can only be changed by editing `settings.json` directly.
+</Note>
+
+### UMT Tab (Motor — UMT)
+
+Configuration for **UndertaleModTool CLI**, the external tool DTS uses to extract strings from and re-import strings into `data.win` files.
+
+The tab shows three status lines that update as you type a directory path:
+- Whether the configured folder exists
+- Whether `UndertaleModCli` (the CLI binary) is present
+- Whether `ExportAllStringsJSON.csx` and `ImportAllStringsJSON.csx` scripts are present
+
+**Manual method:** Type or browse to the folder where you have UMT installed, then click **Verificar** to confirm all required files are found.
+
+**Automatic download:** Click **Descargar UMT CLI** to download the platform-appropriate build directly from the GitHub release (`v0.9.1.1` for Windows, Linux, or macOS). A progress dialog shows download speed and extraction status. The directory field is updated automatically on success.

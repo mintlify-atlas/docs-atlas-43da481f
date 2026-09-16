@@ -1,0 +1,62 @@
+---
+title: "DTS: Automated GameMaker Dialogue Translation"
+sidebarTitle: "Introduction"
+description: "DTS is an open-source, AI-powered tool for bulk translation of GameMaker dialogue strings — built for Undertale, Deltarune, and Toby Fox engine games."
+---
+
+DTS (Dialogue Translation System) is an open-source, AI-powered tool for the bulk automated translation of dialogue strings in GameMaker-based video games — specifically games built on Toby Fox's engine, such as **Undertale** and **Deltarune**. Rather than requiring you to manually edit hundreds or thousands of dialogue entries, DTS orchestrates a full pipeline: extract strings from a `data.win` game file, translate them through an AI provider of your choice, normalize the output, and inject the results back — all without touching a single string by hand.
+
+## What DTS Does
+
+DTS automates the entire localization workflow for GameMaker dialogue through four stages:
+
+1. **Extract** — Pull raw dialogue strings from `strings.json` (produced from `data.win` via UndertaleModTool) into a translation-ready input file (`lang_input.json`).
+2. **Translate** — Send dialogue chunks to an AI provider in batches and collect responses into `lang_es_out.json`.
+3. **Normalize** — Post-process AI output to fix encoding artifacts, strip invalid characters, and preserve in-game command tokens, producing `lang_es_normalize.json`.
+4. **Inject** — Apply the cleaned translations back to the original string table, producing `strings_es.json` ready for reimport via UMT.
+
+## Two Interfaces
+
+DTS ships as a single `dts` command that automatically switches between modes depending on how you invoke it:
+
+- **CLI (Click)** — Pass any argument and DTS runs as a fully scriptable command-line tool. Ideal for automation, CI pipelines, and headless environments.
+- **GUI (ttkbootstrap)** — Run `dts` with no arguments and a desktop GUI launches, giving you a visual project manager, progress indicators, and point-and-click configuration.
+
+## AI Providers
+
+DTS integrates with seven AI providers out of the box, from commercial cloud APIs to fully local inference:
+
+| Provider | Type | Notes |
+|---|---|---|
+| **Gemini** | Cloud | Google AI; default provider |
+| **OpenAI** | Cloud | GPT-4o and GPT-4o-mini |
+| **Anthropic** | Cloud | Claude 3.5 Sonnet and Haiku |
+| **Groq** | Cloud | OpenAI-compatible API |
+| **DeepInfra** | Cloud | OpenAI-compatible API |
+| **Together AI** | Cloud | OpenAI-compatible API |
+| **Ollama** | Local | Fully offline; runs on your machine |
+
+## Integration with UndertaleModTool
+
+DTS relies on **UndertaleModTool (UMT)** — an external, open-source utility licensed under GPLv3 — to extract `strings.json` from a `data.win` binary and to reimport translated strings. DTS does **not** bundle UMT; it invokes it externally. You can point DTS to an existing UMT installation via the settings, or download it automatically from within the GUI.
+
+## Explore the Docs
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install DTS via pip on Windows, macOS, or Linux, or build a standalone binary from source.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Go from zero to a translated `strings_es.json` in five minutes with the CLI workflow.
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/cli-reference">
+    Explore every command — `run`, `normalice`, `apply`, `view`, `config`, and more.
+  </Card>
+  <Card title="AI Providers" icon="microchip" href="/providers">
+    Configure API keys and models for Gemini, OpenAI, Anthropic, Groq, DeepInfra, Together, and Ollama.
+  </Card>
+</CardGroup>
+
+## License and Community
+
+DTS is released under the **[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)** license. You are free to use, study, and build upon the source code for personal and community projects, but **commercial use, resale, or proprietary appropriation is strictly prohibited**. The project was developed with community and educational goals in mind: the source is open so that anyone can audit the translation pipeline, contribute improvements, or use it as a reference for their own GameMaker localization tooling.

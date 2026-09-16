@@ -1,0 +1,141 @@
+---
+title: "UndertaleModTool Integration for data.win Extraction"
+sidebarTitle: "UMT Integration"
+description: "Set up UndertaleModTool CLI so DTS can extract dialogue strings from data.win and re-import your finished translation back into the game file."
+---
+
+GameMaker games such as Undertale and Deltarune store all dialogue strings inside a compiled binary called `data.win`. DTS cannot read or write this file directly — it delegates that work to **UndertaleModTool (UMT) CLI**, an open-source tool from the Underminers team that can load, script, and re-export GameMaker archives. Once UMT is configured, DTS automates the full round-trip: extract strings → translate → re-import.
+
+<Note>
+  The current release of UMT CLI (`UTMT_CLI_v0.9.1.1`) ships as a Windows executable (`UndertaleModCli.exe`). The UMT extraction and import steps are therefore **Windows-only**. On Linux and macOS you can still use DTS by providing a pre-exported `strings.json` file and skipping the UMT steps entirely — see the [Manual Workflow](#manual-workflow-without-umt) section below.
+</Note>
+
+---
+
+## What DTS Does with UMT
+
+DTS uses two UMT scripts bundled inside the UMT installation:
+
+| Operation | Script path inside UMT directory | DTS function |
+|---|---|---|
+| **Extract** strings from `data.win` | `Scripts/Resource Exporters/ExportAllStringsJSON.csx` | `extract_strings()` |
+| **Re-import** translated strings into `data.win` | `Scripts/Resource Importers/ImportAllStringsJSON.csx` | `import_strings()` / `replace_strings()` |
+
+During extraction, DTS invokes `UndertaleModCli.exe load <data.win> --scripts ExportAllStringsJSON.csx --output <temp.win>` and passes the desired output JSON path via stdin. The export script writes `strings.json` containing every string in the archive. During re-import, the same CLI is called with `ImportAllStringsJSON.csx`; DTS sends the path to the translated `strings_es.json` via stdin and UMT writes a new `data.win` with the replaced strings. If the import script is not found, DTS falls back to the `--replace-strings` CLI flag automatically.
+
+---
+
+## Setting Up UMT
+
+<Steps>
+  <Step title="Download UMT CLI">
+    Download the Windows ZIP archive from the official UndertaleModTool releases:
+
+    ```
+    https://github.com/UnderminersTeam/UndertaleModTool/releases/download/0.9.1.1/UTMT_CLI_v0.9.1.1-Windows.zip
+    ```
+
+    Extract the ZIP to a permanent location such as `C:\Tools\UMT`. The directory must contain `UndertaleModCli.exe` at its root and the `Scripts/` subdirectory with the exporter/importer scripts.
+  </Step>
+
+  <Step title="Verify the directory structure">
+    DTS checks for three things inside the configured folder before attempting any operation:
+
+    ```
+    UMT/
+    ├── UndertaleModCli.exe            ← CLI executable
+    └── Scripts/
+        ├── Resource Exporters/
+        │   └── ExportAllStringsJSON.csx
+        └── Resource Importers/
+            └── ImportAllStringsJSON.csx
+    ```
+
+    You can verify the installation from the GUI (**Global Settings → UMT** tab), which reports CLI, export script, and import script status as ✓ or ✗. DTS also calls `UndertaleModCli.exe --version` to confirm the executable works.
+  </Step>
+
+  <Step title="Configure the UMT directory in DTS">
+    Point DTS at the extracted folder. The GUI provides a dedicated **UMT** tab in Global Settings with a folder picker. From the CLI, edit `AppConfig` directly by opening `%APPDATA%\dts\settings.json` and setting the `umt_directory` field:
+
+    ```json
+    {
+      "umt_directory": "C:/Tools/UMT",
+      "umt_auto_download": false
+    }
+    ```
+
+    If `umt_auto_download` is set to `true`, DTS will offer to download the ZIP from the URL above and extract it to `umt_directory` when the executable is not found.
+
+    You can also override the UMT directory at the project level by setting `umt_directory` in the project's `settings.json`. When the project-level value is empty, DTS inherits the directory from `AppConfig`.
+  </Step>
+
+  <Step title="Set the data.win path in your project">
+    Tell DTS where your game's `data.win` lives by setting `route_data_win` in the project settings. Use the GUI **Project Settings** panel or edit `settings.json` directly:
+
+    ```json
+    {
+      "route_data_win": "C:/Games/Undertale/data.win"
+    }
+    ```
+
+    This path is used for both extraction (source file) and re-import (DTS writes the patched copy alongside the original).
+  </Step>
+
+  <Step title="Run extraction and translation">
+    With UMT configured and `route_data_win` set, use the GUI **Extract** button or the appropriate CLI command to:
+
+    1. Extract all strings from `data.win` → saved to `strings.json` (default: `route_strings_file`)
+    2. Generate the translation input → `lang_input.json`
+    3. Run the AI translation pipeline → `lang_es_out.json` → `strings_es.json`
+    4. Re-import the translated strings back into a new `data.win`
+
+    DTS handles the stdin communication with UMT scripts automatically; no manual interaction with UMT is required.
+  </Step>
+</Steps>
+
+---
+
+## How Extraction Works Internally
+
+When `extract_strings()` is called, DTS:
+
+1. Locates `UndertaleModCli.exe` inside the configured directory.
+2. Finds `Scripts/Resource Exporters/ExportAllStringsJSON.csx`.
+3. Spawns `UndertaleModCli.exe load <data.win> --scripts <script> --output __dts_temp_umt_output.win`.
+4. Writes the desired output JSON path to the process's **stdin** (the export script reads this to know where to save the file).
+5. After the process exits, verifies that the output `strings.json` exists and is non-empty.
+6. Removes the temporary `__dts_temp_umt_output.win` file created during script execution.
+
+Re-import (`import_strings()`) follows the same pattern with `ImportAllStringsJSON.csx`, writing the final patched `data.win` to `output_win_path`. If the import script is absent, DTS retries using the `--replace-strings <data.win> <strings.json> <output.win>` CLI flag as a fallback.
+
+<CardGroup cols={2}>
+  <Card title="UMT Status Check" icon="circle-check">
+    DTS calls `umt_status()` before any operation and reports individual status for the CLI executable, export script, and import script — so you can diagnose partial installations at a glance.
+  </Card>
+  <Card title="Timeout Protection" icon="clock">
+    All UMT subprocess calls enforce a configurable timeout (default: 120 s). If UMT hangs, DTS kills the process and returns a clear error rather than blocking indefinitely.
+  </Card>
+</CardGroup>
+
+---
+
+## Manual Workflow Without UMT
+
+<Tip>
+  If you are on Linux or macOS, or prefer not to install UMT, you can bypass the extraction step entirely by providing a pre-exported `strings.json` yourself. Place it in the project directory (or set `route_strings_file` to its path) and start DTS from the translation step. The re-import step can also be skipped — simply apply `strings_es.json` to your game using another modding tool of your choice.
+</Tip>
+
+The `strings.json` file DTS expects follows this format (identical to the output produced by UMT's `ExportAllStringsJSON.csx`):
+
+```json
+{
+  "Strings": [
+    "string_id_or_index",
+    "Hello! How are you?",
+    "* Toriel healed your wounds.",
+    "..."
+  ]
+}
+```
+
+With a valid `strings.json` in place, DTS will generate `lang_input.json`, run the AI translation pipeline, produce `strings_es.json`, and leave the `data.win` import as an optional step you can perform manually.

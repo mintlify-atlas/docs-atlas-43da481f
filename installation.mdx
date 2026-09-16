@@ -1,0 +1,115 @@
+---
+title: "Install DTS on Windows, macOS, and Linux"
+sidebarTitle: "Installation"
+description: "Install DTS via pip on Windows, macOS, or Linux with Python 3.11+, or build a self-contained binary from source using PyInstaller."
+---
+
+DTS is distributed as a standard Python package on PyPI and runs on Windows, macOS, and Linux wherever Python 3.11 or later is available. The quickest path is a one-line `pip install`; if you want to contribute or produce a standalone executable, you can also build from source. Either way you end up with the same `dts` command available in your terminal.
+
+## Requirements
+
+- **Python 3.11 or later** — DTS uses modern type-union syntax and dataclass features that require 3.11+.
+- **pip** — bundled with every standard Python installation.
+- **UndertaleModTool (UMT)** — required separately for extracting and reimporting `data.win` files (see note below).
+
+## Install from PyPI
+
+<Steps>
+  <Step title="Install DTS">
+    Choose your preferred installer. `pip` is the standard choice; `pipx` installs DTS in an isolated environment and is recommended if you want to keep the `dts` command globally available without affecting other projects.
+
+    <CodeGroup>
+      ```bash pip
+      pip install dts
+      ```
+
+      ```bash pipx
+      pipx install dts
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Verify the installation">
+    Confirm that the `dts` command is on your `PATH` and that all dependencies loaded correctly:
+
+    ```bash
+    dts --help
+    ```
+
+    You should see the top-level help listing all available commands. If your shell reports `command not found`, make sure Python's `Scripts` (Windows) or `bin` (macOS/Linux) directory is in your `PATH`.
+  </Step>
+
+  <Step title="Configure an AI provider">
+    DTS needs at least one AI provider API key before it can translate. Add a key for the default Gemini provider:
+
+    ```bash
+    dts config --add-key "YOUR_API_KEY"
+    ```
+
+    You can add keys for other providers — OpenAI, Anthropic, Groq, DeepInfra, Together AI — through the GUI settings panel, or configure a local [Ollama](https://ollama.ai) host if you prefer fully offline translation.
+  </Step>
+</Steps>
+
+## Dependencies
+
+The following packages are installed automatically when you install DTS:
+
+| Package | Minimum version | Purpose |
+|---|---|---|
+| `google-genai` | `>=1.0.0` | Gemini provider |
+| `openai` | `>=1.0.0` | OpenAI, Groq, DeepInfra, and Together AI providers (OpenAI-compatible) |
+| `anthropic` | `>=0.30.0` | Anthropic (Claude) provider |
+| `ollama` | `>=0.6.0` | Local Ollama provider |
+| `click` | `>=8.1.0` | CLI framework |
+| `rich` | `>=13.0.0` | Coloured terminal output |
+| `ttkbootstrap` | `>=1.10.0` | Desktop GUI |
+
+## Build from Source
+
+If you want to contribute to DTS or produce a standalone binary that does not require Python to be installed on the target machine, follow these steps.
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/elfrask/dts.git
+    cd dts
+    ```
+  </Step>
+
+  <Step title="Install in editable mode">
+    This installs all dependencies and wires the `dts` entry point to the local source tree so that edits take effect immediately without reinstalling:
+
+    ```bash
+    pip install -e .
+    ```
+  </Step>
+
+  <Step title="Verify the editable install">
+    ```bash
+    dts --help
+    ```
+  </Step>
+
+  <Step title="(Optional) Build a standalone binary">
+    DTS ships a `build.py` script that invokes PyInstaller to produce a self-contained `dts/` directory. You will need PyInstaller installed first:
+
+    ```bash
+    pip install pyinstaller
+    python build.py
+    ```
+
+    The output is placed in `dist/dts/`. The resulting binary bundles the Python runtime and all dependencies — no separate Python installation required on the target machine.
+  </Step>
+</Steps>
+
+## UndertaleModTool (UMT)
+
+<Note>
+  UMT is a **separate requirement** not bundled with DTS. It is needed to extract `strings.json` from a `data.win` game file and to reimport translated strings back into the game. UMT is licensed under GPLv3 and is invoked by DTS as an external process.
+
+  **To configure UMT:**
+  - **GUI:** Open *Global Settings* → *Engine (UMT)* tab. Click **"Download UMT CLI"** for automatic setup, or point DTS to an existing installation folder using the manual path field.
+  - **CLI:** Set the UMT directory path in your project's `settings.json`, or run `dts config --show` to inspect the current configuration.
+
+  Download UMT manually from the [UndertaleModTool releases page](https://github.com/UnderminersTeam/UndertaleModTool/releases) if needed.
+</Note>

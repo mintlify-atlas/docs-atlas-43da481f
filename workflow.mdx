@@ -1,0 +1,242 @@
+---
+title: "End-to-End Translation Workflow"
+sidebarTitle: "Workflow"
+description: "Step-by-step guide to the full DTS pipeline: from extracting strings.json to exporting a translated data.win or strings_es.json file."
+---
+
+DTS translates GameMaker dialogue strings by decomposing the process into a series of discrete, resumable file transformations. Each step reads one or more JSON files and writes another, so you can inspect the output of every stage, stop at any point, and pick up exactly where you left off. This page walks through the complete pipeline in order.
+
+---
+
+## Pipeline Overview
+
+```
+data.win (game binary)
+    │
+    ▼  [UMT CLI: ExportAllStringsJSON.csx]
+strings.json  ────────────────────────────────── (raw GameMaker string table)
+    │
+    ▼  [dts input-generate]
+lang_input.json  ─────────────────────────────── (key → original dialogue)
+    │
+    ▼  [dts run]
+lang_es_out.json  ────────────────────────────── (key → translated dialogue, built incrementally)
+    │
+    ├─► [dts voids]   remove empty/invalid entries
+    ├─► [dts clean]   strip AI key-prefix artifacts
+    │
+    ▼  [dts normalice]
+lang_es_normalize.json  ──────────────────────── (typographically clean translations)
+    │
+    ├─► [dts merge]   back-fill any untranslated keys from lang_input.json
+    │
+    ▼  [dts apply]
+strings_es.json  ─────────────────────────────── (translated GameMaker string table)
+    │
+    ▼  [UMT CLI: ImportAllStringsJSON.csx]
+data_es.win  ─────────────────────────────────── (patched game binary)
+```
+
+---
+
+## Happy-Path Steps
+
+<Steps>
+  <Step title="Obtain strings.json from data.win">
+    DTS needs `strings.json` — the full flat list of every string in the GameMaker binary. The recommended way is to use **UndertaleModTool CLI** (`UndertaleModCli`) with the provided `ExportAllStringsJSON.csx` script:
+
+    ```bash
+    UndertaleModCli data.win ExportAllStringsJSON.csx strings.json
+    ```
+
+    If you already have a `strings.json` extracted by other means (UTMT GUI, a community dump, etc.), you can skip this step and place the file in your project directory directly. Configure the path in your project's `settings.json` under `route_strings_file`.
+  </Step>
+
+  <Step title="Generate lang_input.json">
+    Run `dts input-generate` to scan `strings.json` and produce `lang_input.json`, a dictionary of `{ "key": "dialogue text" }` pairs ready for translation.
+
+    ```bash
+    dts input-generate
+    # → Input file generated: lang_input.json
+    ```
+
+    **How it works:** DTS iterates the flat `Strings` array. Each entry is compared against the regex pattern `^([a-zA-Z0-9_]+_slash_[a-zA-Z0-9_]+_gml_\d+_\d+)` — entries that match become *keys*. The very next non-key, non-script string is treated as the dialogue value for that key. Strings that are all-lowercase with no spaces (internal identifiers) are skipped. The result contains only human-readable dialogue lines paired with their stable GameMaker key identifiers.
+  </Step>
+
+  <Step title="Run AI translation">
+    Run `dts run` to translate every key in `lang_input.json` that is not yet in `lang_es_out.json`.
+
+    ```bash
+    dts run
+    # → Translation saved to: lang_es_out.json
+    ```
+
+    **Chunking:** DTS splits `lang_input.json` into batches of `chunk_size` keys (default **200**) and sends each batch to the AI provider in a single request. You can override the chunk size for one run:
+
+    ```bash
+    dts run --chunk-size 50
+    ```
+
+    **Retry logic:** If a batch fails, DTS retries up to five times, halving the effective chunk size on each retry (`chunk // (attempt + 1)`). After five consecutive failures at the same position, the run stops with an error.
+
+    **Incremental writes:** `lang_es_out.json` is written to disk after every successful batch. This means you can interrupt the process at any time — with `Ctrl+C` or by stopping the GUI — and the next invocation of `dts run` will skip already-translated keys and continue from where it left off.
+
+    **Inter-batch delay:** For cloud providers (anything that is not Ollama), DTS waits **7 seconds** between batches to stay within API rate limits. Ollama runs have no delay.
+  </Step>
+
+  <Step title="Post-process the output">
+    Before normalizing, it is good practice to clean up the raw AI output:
+
+    ```bash
+    # Remove empty or structurally invalid entries
+    dts voids
+
+    # Strip key-prefix artifacts left by some AI models
+    dts clean
+    ```
+
+    `dts voids` compares each translated value against its original. Entries that are blank (but whose original is not), or that consist of only a command prefix with fewer than four meaningful characters, are removed from `lang_es_out.json`. `dts clean` strips prefixes like `traduccion_` or `Traducción_` that some models prepend to their output.
+  </Step>
+
+  <Step title="Normalize the translations">
+    Run `dts normalice` to convert typographic characters to their plain equivalents and write the result to `lang_es_normalize.json`.
+
+    ```bash
+    # Convert curly quotes to straight quotes (recommended default)
+    dts normalice
+
+    # Also strip accents and non-ASCII for engines without Unicode support
+    dts normalice --secure
+    ```
+
+    The default normalizer replaces Unicode curly quotes (`"`, `"`, `'`, `'`) with straight ASCII equivalents. With `--secure` it additionally maps accented vowels (á → a, é → e, etc.), ñ → n, ü → u, and removes inverted punctuation (¡, ¿), then strips any remaining non-ASCII bytes. Use `--secure` if your target GameMaker engine does not support extended characters.
+
+    `lang_es_out.json` is left untouched; the cleaned output goes to `lang_es_normalize.json`.
+  </Step>
+
+  <Step title="(Optional) Merge to fill gaps">
+    If some dialogue keys are still untranslated (the AI skipped them or they were removed by `voids`), run `dts merge` to back-fill them from `lang_input.json` so the output file is complete:
+
+    ```bash
+    dts merge
+    # → Merged
+    ```
+
+    This overlays `lang_es_out.json` on top of `lang_input.json`, meaning translated entries take priority and any missing key is filled with its original English text. The merged result replaces `lang_es_out.json`.
+  </Step>
+
+  <Step title="Apply translations to produce strings_es.json">
+    Run `dts apply` to merge the normalized translation dictionary back into the original `strings.json` string table, producing `strings_es.json`.
+
+    ```bash
+    dts apply
+    # → Applied to: strings_es.json
+    ```
+
+    For each key in `strings.json` that has a matching entry in `lang_es_normalize.json`, DTS substitutes the translated value while preserving any command suffixes present at the end of the original string (`/`, `%`, `/%`).
+
+    If you need to re-apply translations to an already-exported `strings_es.json` (for example, after editing a few entries), use `dts fix` instead:
+
+    ```bash
+    dts fix
+    ```
+  </Step>
+
+  <Step title="Check progress at any time">
+    ```bash
+    dts view
+    ```
+
+    ```
+    Total dialogs: 4821
+    Translated:  4821
+    Remaining:   0
+    ```
+  </Step>
+
+  <Step title="Export to data.win (optional)">
+    Once you have `strings_es.json`, you can re-import it into `data.win` using UMT CLI:
+
+    ```bash
+    UndertaleModCli data.win ImportAllStringsJSON.csx strings_es.json data_es.win
+    ```
+
+    Or use the GUI's **Exportar** tab which handles this automatically.
+  </Step>
+</Steps>
+
+---
+
+## Manual Translation Workflow
+
+Not every dialogue will be translated correctly by the AI. Use the manual workflow to fill gaps or fix specific lines without re-running the entire pipeline.
+
+<Accordion title="Manual translation: step-by-step">
+  **1. Pull untranslated entries**
+
+  ```bash
+  dts pull-manual
+  # → Manual edit file: lang_manual_edit.json
+  ```
+
+  This compares `lang_input.json` against `lang_es_out.json` and writes every key that has no translation into `lang_manual_edit.json`. The file has the same `{ "key": "text" }` format as the other translation files, but the values are the *original* English strings — ready for you to overwrite with your translation.
+
+  **2. Edit lang_manual_edit.json**
+
+  Open `lang_manual_edit.json` in any text editor and replace the original English values with your Spanish translations:
+
+  ```json
+  {
+    "undertale_slash_room_forest_gml_20_0": "¡Hola! ¿Cómo estás?",
+    "undertale_slash_room_forest_gml_21_0": "Es un día precioso, ¿verdad?"
+  }
+  ```
+
+  Keep all GameMaker command tokens unchanged (`\XX`, `^X`, `$~X`, `~X`, and suffixes like `/`, `%`, `/%`).
+
+  **3. Apply manual edits**
+
+  ```bash
+  dts apply-manual
+  # → Manual edits applied
+  ```
+
+  This merges every entry in `lang_manual_edit.json` into `lang_es_out.json`, overwriting the AI translation (or blank) for each key. Continue from step 4 of the main pipeline (normalice → apply).
+
+  **Using the GUI instead**
+
+  The **Revisión** tab in the GUI provides the same workflow visually:
+  - Click **Pull pendientes** to generate `lang_manual_edit.json`.
+  - Double-click any row in the table to open an inline editor.
+  - Click **Guardar cambios** to run `apply-manual` without touching the terminal.
+</Accordion>
+
+---
+
+## Resume Behavior
+
+<Tip>
+  DTS never overwrites already-translated entries. When you run `dts run`, the translator loads the current contents of `lang_es_out.json` and computes the set difference against `lang_input.json`:
+
+  ```python
+  untranslated = {k: v for k, v in input_data.items() if k not in output_data}
+  ```
+
+  Only keys absent from the output file are sent to the AI. Because the output file is written after every successful batch, a crash or cancellation at any point means you resume from the next un-translated batch — with zero repeated API calls and zero lost work.
+
+  If `lang_es_out.json` is empty or missing, DTS starts from the beginning. If it already contains every key, DTS prints `"All dialogs are already translated"` and exits cleanly.
+</Tip>
+
+---
+
+## File Reference
+
+| File | Default name | Produced by | Consumed by |
+|------|-------------|-------------|-------------|
+| Game binary | `data.win` | — | UMT extract, UMT import |
+| Raw string table | `strings.json` | UMT export | `dts input-generate`, `dts apply` |
+| Translation input | `lang_input.json` | `dts input-generate` | `dts run`, `dts voids`, `dts pull-manual` |
+| Raw AI output | `lang_es_out.json` | `dts run` | `dts voids`, `dts clean`, `dts normalice`, `dts merge`, `dts apply-manual` |
+| Normalized output | `lang_es_normalize.json` | `dts normalice` | `dts apply`, `dts fix` |
+| Manual edits | `lang_manual_edit.json` | `dts pull-manual` | `dts apply-manual` |
+| Final string table | `strings_es.json` | `dts apply`, `dts fix` | UMT import |

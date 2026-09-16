@@ -1,0 +1,227 @@
+---
+title: "Configuring AI Translation Providers in DTS"
+sidebarTitle: "AI Providers"
+description: "Configure and manage the seven AI translation providers DTS supports — cloud, dedicated, and local — including API keys and model selection."
+---
+
+DTS supports seven AI translation providers organised into three tiers: **OpenAI-compatible cloud providers** (Groq, DeepInfra, Together AI, OpenAI), **dedicated SDK providers** (Gemini, Anthropic), and a **local provider** (Ollama). Each provider is identified by a string value from the `ProviderType` enum (`gemini`, `ollama`, `groq`, `deepinfra`, `together`, `anthropic`, `openai`). You select a provider per project and store credentials globally in `AppConfig` so they are never mixed with project files.
+
+## Selecting a Provider
+
+Switch the active provider for the current project from the CLI:
+
+```bash
+dts settings --provider groq
+dts settings --provider deepinfra
+dts settings --provider gemini
+dts settings --provider ollama
+```
+
+You can also change the provider from the **Project Settings** panel in the GUI.
+
+---
+
+<Tabs>
+  <Tab title="Cloud Providers">
+
+Cloud providers are either **OpenAI-compatible** (share the same `openai` Python library with a custom `base_url`) or use a **dedicated SDK**. All cloud providers require an API key stored in `AppConfig`.
+
+### Adding API Keys
+
+<Note>
+  The CLI `--add-key` flag only targets the **Gemini** provider. For all other cloud providers (Groq, DeepInfra, Together AI, OpenAI, Anthropic), add keys through the **Global Settings → AI Provider** tab in the GUI.
+</Note>
+
+```bash
+# Add a Gemini API key via CLI
+dts config --add-key "AIzaSyYour-Gemini-Key"
+
+# Inspect current key counts for all providers
+dts config --show
+```
+
+The `--show` output lists each configured provider and how many keys are registered, for example:
+
+```
+gemini   : 3 key(s)
+groq     : 1 key(s)
+anthropic: 2 key(s)
+```
+
+---
+
+### Groq
+
+Groq uses the **OpenAI-compatible** API. DTS sets `base_url` to `https://api.groq.com/openai/v1` automatically when `provider = groq`.
+
+```bash
+dts settings --provider groq
+dts settings --model "openai/gpt-oss-120b"
+```
+
+| Model | Best for |
+|---|---|
+| `openai/gpt-oss-20b` | Very fast throughput for common dialogue strings |
+| `openai/gpt-oss-120b` | High capacity for maintaining exact JSON formatting |
+| `qwen/qwen3.6-27b` | Excellent with non-Latin characters and code variables |
+
+---
+
+### DeepInfra
+
+DeepInfra uses the **OpenAI-compatible** API. DTS sets `base_url` to `https://api.deepinfra.com/v1/openai` automatically.
+
+```bash
+dts settings --provider deepinfra
+dts settings --model "deepseek-ai/DeepSeek-V4-Flash"
+```
+
+| Model | Best for |
+|---|---|
+| `deepseek-ai/DeepSeek-V4-Flash` | Fast and economical batch processing |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Strong contextual understanding, jokes and nuance |
+| `Qwen/Qwen2.5-72B-Instruct` | Meticulous respect for format variables |
+
+---
+
+### Together AI
+
+Together AI uses the **OpenAI-compatible** API. DTS sets `base_url` to `https://api.together.xyz/v1` automatically.
+
+```bash
+dts settings --provider together
+dts settings --model "together/Qwen3.7-Plus"
+```
+
+| Model | Best for |
+|---|---|
+| `together/Qwen3.7-Plus` | Strong gender and number agreement coherence |
+| `together/Llama-3-8B-Instruct-Lite` | Budget-friendly high-speed mode |
+
+---
+
+### OpenAI
+
+OpenAI uses the **OpenAI-compatible** API at `https://api.openai.com/v1`.
+
+```bash
+dts settings --provider openai
+dts settings --model "gpt-4o-mini"
+```
+
+| Model | Best for |
+|---|---|
+| `gpt-4o-mini` | Cost-effective workhorse for large volumes |
+| `gpt-4o` | Maximum intelligence for convoluted source text |
+
+---
+
+### Gemini
+
+Gemini uses the **`google-genai` SDK** directly (not the OpenAI-compatible shim). DTS configures `ThinkingConfig(include_thoughts=False)` for all Gemini requests to reduce latency.
+
+```bash
+# Add Gemini key (CLI-supported)
+dts config --add-key "AIzaSyYour-Key"
+
+dts settings --provider gemini
+dts settings --model "gemini-2.5-flash"
+```
+
+| Model | Notes |
+|---|---|
+| `gemini-3.5-flash` | Default model — fast flash-tier |
+| `gemini-3.1-pro-preview` | Pro-level preview |
+| `gemini-3.1-flash-lite` | Lightweight flash variant |
+| `gemini-3.0-deep-think` | Deep reasoning model |
+| `gemini-2.5-pro` | Gemini 2.5 Pro |
+| `gemini-2.5-flash` | Gemini 2.5 Flash |
+
+---
+
+### Anthropic
+
+Anthropic uses the **`anthropic` SDK**. DTS calls `client.messages.create()` with `max_tokens=8192`.
+
+```bash
+dts settings --provider anthropic
+dts settings --model "claude-3-5-sonnet-20241022"
+```
+
+| Model | Best for |
+|---|---|
+| `claude-3-5-sonnet-20241022` | Best at following complex formatting rules; reliable JSON |
+| `claude-3-5-haiku-20241022` | Fast and cost-effective alternative |
+
+  </Tab>
+  <Tab title="Local — Ollama">
+
+Ollama runs entirely on your own machine. DTS connects to it using the **`ollama` Python SDK** at `{host}:{port}`. No API key is required.
+
+### Setup
+
+Configure the Ollama connection in global settings:
+
+```bash
+# Change host (default: http://localhost)
+dts config --ollama-host "http://192.168.1.100"
+
+# Change connection timeout in seconds (default: 120)
+dts config --ollama-timeout 180
+```
+
+The port defaults to `11434` and is managed through the GUI **Global Settings → Ollama** tab.
+
+### Available Models
+
+<Note>
+  DTS calls `ollama.Client.list()` at runtime to enumerate available models. The model list is populated **automatically** from whatever models you have pulled locally — there is no fixed list. Any model returned by `ollama list` on your system will appear in the model selector.
+</Note>
+
+```bash
+# Pull a model with Ollama before using it in DTS
+ollama pull llama3.1
+ollama pull qwen2.5
+
+# Then select it in DTS
+dts settings --provider ollama
+dts settings --model "llama3.1"
+```
+
+### Connection Parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `ollama_host` | `http://localhost` | Ollama server address |
+| `ollama_port` | `11434` | Ollama server port |
+| `ollama_timeout` | `120` | Request timeout in seconds |
+
+### Single-Dialog Mode
+
+Ollama also supports `single_translate` mode, where DTS translates each dialogue string individually using a separate prompt optimised for context-free single lines. Enable it in project settings:
+
+```bash
+dts settings --provider ollama
+# single_translate is toggled in the GUI Project Settings panel
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## API Key Rotation
+
+When multiple API keys are configured for a provider, DTS's `ApiKeyManager` rotates through them automatically on failure. On each retry attempt, `rotate()` is called and the next key in the list is used. This is particularly useful for providers with free-tier rate limits such as Gemini, where you might register several keys from different accounts.
+
+```
+Attempt 1 → key[0]  → quota exceeded
+Rotate    → key[1]
+Attempt 2 → key[1]  → success ✓
+```
+
+All providers except Ollama (which needs no key) benefit from this rotation. You can enable or disable individual keys per provider through the GUI without removing them.
+
+<Warning>
+  If **all** keys for a provider fail across the maximum retry attempts (3 by default), DTS marks the batch as failed and records the affected keys in `TranslationResult.failed_keys` for later inspection.
+</Warning>

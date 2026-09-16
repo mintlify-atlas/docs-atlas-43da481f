@@ -1,47 +1,170 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with DTS in 5 Minutes"
+sidebarTitle: "Quickstart"
+description: "Extract, translate, normalize, and apply GameMaker dialogue strings end-to-end using the DTS CLI — from a raw data.win to a finished strings_es.json."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+This guide walks you through a complete translation run using the DTS command-line interface, starting from a raw GameMaker `data.win` file and ending with a translated `strings_es.json` ready to reimport into your game. The whole process takes about five minutes to set up; actual translation time depends on the size of the game and the AI provider you choose.
 
 ## Prerequisites
 
-Before you begin, you must have:
+Before you begin, make sure you have:
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+- **DTS installed** — see the [Installation guide](/installation) if you haven't done this yet.
+- **A `strings.json` file** — extracted from your game's `data.win` using UndertaleModTool (UMT). This is the raw string table DTS works with.
+- **At least one AI provider API key** — or a running [Ollama](https://ollama.ai) instance for local translation.
 
-## Get started
+<Note>
+  All DTS commands default to the **current working directory** as the project directory. If you want to run DTS commands from a different location, pass `--project-dir <path>` (or its short alias `-p <path>`) to any command to point it at your project folder explicitly.
+
+  ```bash
+  dts -p /path/to/my-project view
+  ```
+</Note>
+
+## The Translation Pipeline
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Create a project directory and place strings.json">
+    Create a dedicated folder for your translation project and copy your extracted `strings.json` into it. DTS will create all intermediate files alongside it.
 
     ```bash
-    npm install your-package
+    mkdir my-translation
+    cp /path/to/strings.json my-translation/
+    cd my-translation
+    ```
+
+    Your project directory should look like this before you begin:
+
+    ```
+    my-translation/
+    └── strings.json
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+
+  <Step title="Configure your AI provider API key">
+    Register your API key with DTS. This command adds a key for the default **Gemini** provider and stores it in the global DTS configuration (not inside your project):
 
     ```bash
-    your-cli init
+    dts config --add-key "YOUR_API_KEY"
+    ```
+
+    Verify that the key was saved correctly:
+
+    ```bash
+    dts config --show
+    ```
+
+    You should see `1/1 keys active` listed under the `gemini` provider. If you prefer a different provider, configure it through `dts settings` or the GUI settings panel.
+  </Step>
+
+  <Step title="Generate the translation input file">
+    DTS reads `strings.json` and produces `lang_input.json` — a flat key-value map of every translatable dialogue string, ready to be sent to an AI provider:
+
+    ```bash
+    dts input-generate
+    ```
+
+    Expected output:
+
+    ```
+    Input file generated: lang_input.json
+    ```
+
+    Your project directory now contains `lang_input.json`. Open it to inspect the entries — each key is a unique string identifier and each value is the original English dialogue text.
+  </Step>
+
+  <Step title="Run the translation">
+    Send the input file to your configured AI provider in chunks. DTS batches the strings, sends each chunk to the API, and accumulates responses in `lang_es_out.json`:
+
+    ```bash
+    dts run
+    ```
+
+    DTS will print progress to the terminal as each chunk completes. If the command is interrupted, you can run `dts run` again — it will skip strings that have already been translated.
+
+    <Tip>
+      Use `--chunk-size` to tune how many strings are sent per API call. The default is **200**. Smaller values (e.g. `50`–`100`) reduce the risk of hitting token limits and improve reliability with providers that have strict rate limits. Larger values speed things up when the provider supports it.
+
+      ```bash
+      # Smaller chunks for rate-limited or context-limited providers
+      dts run --chunk-size 50
+
+      # Larger chunks for fast providers like Gemini Flash
+      dts run --chunk-size 400
+      ```
+    </Tip>
+  </Step>
+
+  <Step title="Normalize the translation output">
+    AI output sometimes contains encoding artifacts, stray characters, or formatting inconsistencies. The `normalice` command post-processes `lang_es_out.json` and writes a clean version to `lang_es_normalize.json`:
+
+    ```bash
+    dts normalice
+    ```
+
+    Expected output:
+
+    ```
+    Normalized: lang_es_normalize.json
+    ```
+
+    Pass `--secure` to also strip accented characters and special diacritics — useful for games that use a limited character set in their font:
+
+    ```bash
+    dts normalice --secure
     ```
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Apply translations to the string table">
+    Merge the normalized translations back into the original `strings.json` structure, producing `strings_es.json`:
 
     ```bash
-    your-cli start
+    dts apply
     ```
+
+    Expected output:
+
+    ```
+    Applied to: strings_es.json
+    ```
+
+    If you need to re-apply translations to an already-existing `strings_es.json` without overwriting manually corrected entries, use `dts fix` instead.
+  </Step>
+
+  <Step title="Check your progress">
+    At any point you can inspect how many strings have been translated versus how many remain:
+
+    ```bash
+    dts view
+    ```
+
+    Example output:
+
+    ```
+    Total dialogs: 4821
+    Translated:    4821
+    Remaining:     0
+    ```
+
+    If `Remaining` is greater than zero, run `dts run` again — DTS is resumable and will pick up only the missing entries.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What Happens Next
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+After running `dts apply`, your project directory contains `strings_es.json` — a translated copy of the original string table in the same format GameMaker expects. You can now reimport this file into `data.win` using UndertaleModTool to produce a fully translated game binary.
+
+Your completed project directory will look like this:
+
+```
+my-translation/
+├── strings.json          ← original English strings (input)
+├── lang_input.json       ← generated key-value translation input
+├── lang_es_out.json      ← raw AI translation output
+├── lang_es_normalize.json ← normalized translation (used by apply)
+├── strings_es.json       ← final translated strings (ready for UMT)
+└── settings.json         ← DTS project configuration
+```
+
+If you want to refine specific translations manually before applying, use `dts pull-manual` to generate a `lang_manual_edit.json` file containing only the untranslated or problematic entries, edit it by hand, then run `dts apply-manual` to merge your corrections into the output before running `dts apply`.

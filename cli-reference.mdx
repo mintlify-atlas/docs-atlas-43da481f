@@ -1,0 +1,320 @@
+---
+title: "DTS CLI Command Reference"
+sidebarTitle: "CLI Reference"
+description: "Complete reference for every DTS command-line command, flags, defaults, and usage examples for translating GameMaker dialogue strings."
+---
+
+The DTS command-line interface is invoked by running `dts` with one or more arguments. Every sub-command operates on a *project directory* — a folder that contains a `settings.json` file alongside your translation files. When no project directory is specified, DTS uses the current working directory.
+
+## Global flag: `--project-dir`
+
+All commands accept a global option that points DTS at a project folder other than your current directory.
+
+<ParamField path="--project-dir" type="path" default=".">
+  Project directory to operate on. Must be an existing directory. Short alias: `-p`.
+</ParamField>
+
+```bash
+# Run any command against a project in a different folder
+dts -p ~/projects/deltarune-es view
+```
+
+---
+
+## `dts input-generate`
+
+Reads `strings.json` (the raw GameMaker string table) and extracts dialogue key-value pairs into `lang_input.json`. Only strings whose keys match the pattern `name_slash_name_gml_N_N` are kept; pure-lowercase identifiers and script-internal keys are filtered out automatically.
+
+```bash
+dts input-generate
+```
+
+**Input:** `strings.json` (path configured in `settings.json`)  
+**Output:** `lang_input.json`
+
+```bash
+# Generate the input file from the current project directory
+dts input-generate
+
+# Generate from a project in a specific folder
+dts -p ~/projects/deltarune-es input-generate
+```
+
+---
+
+## `dts run`
+
+Translates all entries in `lang_input.json` that are not yet present in `lang_es_out.json`, using the AI provider and model configured for the project. Translation is performed in batches; the output file is updated after every successful batch so interrupted runs can be resumed automatically.
+
+<ParamField query="--chunk-size" type="integer" default="200">
+  Override the number of dialogue strings sent to the provider in a single request. Overrides the value stored in `settings.json` for this run only.
+</ParamField>
+
+```bash
+# Translate with the project's saved chunk size
+dts run
+
+# Translate with a smaller batch for rate-limited providers
+dts run --chunk-size 50
+```
+
+**Input:** `lang_input.json`  
+**Output:** `lang_es_out.json` (updated incrementally)
+
+<Note>
+  If `lang_es_out.json` already contains partial results, `dts run` skips those keys and continues from where it left off — no work is repeated.
+</Note>
+
+---
+
+## `dts apply`
+
+Merges the normalized translation dictionary (`lang_es_normalize.json`) back into the original GameMaker string table (`strings.json`) to produce the final `strings_es.json` file. Command-line suffixes like `/`, `%`, and `/%` are preserved on each dialogue entry.
+
+```bash
+dts apply
+```
+
+**Input:** `strings.json`, `lang_es_normalize.json`  
+**Output:** `strings_es.json`
+
+```bash
+dts apply
+# → Applied to: /path/to/project/strings_es.json
+```
+
+---
+
+## `dts fix`
+
+Re-applies the normalized translation dictionary to an *existing* `strings_es.json` instead of the original `strings.json`. Use this to refresh a previously exported file after updating translations without regenerating it from scratch.
+
+```bash
+dts fix
+```
+
+**Input:** `strings_es.json` (existing), `lang_es_normalize.json`  
+**Output:** `strings_es.json` (overwritten)
+
+```bash
+dts fix
+# → Fixed: /path/to/project/strings_es.json
+```
+
+---
+
+## `dts normalice`
+
+Normalizes typographic characters in `lang_es_out.json` and writes the result to `lang_es_normalize.json`. By default it converts Unicode curly quotes (`"`, `"`, `'`, `'`) to their straight ASCII equivalents. With `--secure` it additionally strips all accented characters and non-ASCII symbols, producing a string safe for GameMaker's legacy string encoding.
+
+<ParamField query="--secure" type="flag">
+  Enable ASCII-safe mode: remove accents (á → a, ñ → n, ü → u, etc.) and strip non-ASCII characters. Use this for GameMaker engines that do not support Unicode properly.
+</ParamField>
+
+<ParamField query="--old" type="flag">
+  Use the legacy normalizer (`clean_normalice`) instead of the default one. The legacy normalizer strips all non-ASCII characters unconditionally without the typographic-quote substitution step.
+</ParamField>
+
+```bash
+# Standard normalization (curly quotes → straight quotes)
+dts normalice
+
+# ASCII-safe normalization (also strips accents and special chars)
+dts normalice --secure
+
+# Use the legacy normalizer
+dts normalice --old
+```
+
+**Input:** `lang_es_out.json`  
+**Output:** `lang_es_normalize.json`
+
+---
+
+## `dts normalice-old`
+
+Deprecated alias for `dts normalice --old`. Invokes the legacy normalizer directly without requiring the `--old` flag.
+
+```bash
+dts normalice-old
+```
+
+<Note>
+  `normalice-old` is deprecated. Prefer `dts normalice --old` for clarity. Both commands produce identical output.
+</Note>
+
+---
+
+## `dts voids`
+
+Removes empty, blank, or structurally invalid translated entries from `lang_es_out.json`. An entry is considered void if its translated value is an empty string while the original is not, or if it consists only of a command prefix (e.g. `\XX` or `*XX`) with fewer than four meaningful characters after it.
+
+```bash
+dts voids
+```
+
+**Input:** `lang_es_out.json`, `lang_input.json` (for comparison)  
+**Output:** `lang_es_out.json` (filtered in place)
+
+```bash
+dts voids
+# → Voids cleaned
+```
+
+---
+
+## `dts clean`
+
+Strips known key-prefix artifacts from translated values in `lang_es_out.json`. Some AI providers occasionally return values prefixed with `traduccion_`, `Traducción `, or `Traducción_`. This command removes those prefixes.
+
+```bash
+dts clean
+```
+
+**Input / Output:** `lang_es_out.json` (modified in place)
+
+```bash
+dts clean
+# → Keys cleaned
+```
+
+---
+
+## `dts merge`
+
+Merges `lang_input.json` (all original dialogue keys) into `lang_es_out.json` (translated keys). Keys already present in the output are kept; missing keys are filled in from the input. The result is written back to `lang_es_out.json`, giving you a complete file that covers every dialogue even if some are still untranslated.
+
+```bash
+dts merge
+```
+
+**Input:** `lang_input.json`, `lang_es_out.json`  
+**Output:** `lang_es_out.json` (merged in place)
+
+```bash
+dts merge
+# → Merged
+```
+
+---
+
+## `dts pull-manual`
+
+Compares `lang_input.json` against `lang_es_out.json` and writes every key that has not yet been translated into `lang_manual_edit.json`. Open that file in any text editor, fill in the missing translations, then run `dts apply-manual` to merge them back.
+
+```bash
+dts pull-manual
+```
+
+**Input:** `lang_input.json`, `lang_es_out.json`  
+**Output:** `lang_manual_edit.json`
+
+```bash
+dts pull-manual
+# → Manual edit file: /path/to/project/lang_manual_edit.json
+```
+
+---
+
+## `dts apply-manual`
+
+Reads the manually translated entries from `lang_manual_edit.json` and merges them into `lang_es_out.json`, overwriting any existing value for each key present in the manual file.
+
+```bash
+dts apply-manual
+```
+
+**Input:** `lang_manual_edit.json`, `lang_es_out.json`  
+**Output:** `lang_es_out.json` (updated in place)
+
+```bash
+dts apply-manual
+# → Manual edits applied
+```
+
+---
+
+## `dts view`
+
+Prints a quick progress summary for the project: total dialogue entries in `lang_input.json`, how many have been translated (present in `lang_es_out.json`), and how many remain.
+
+```bash
+dts view
+```
+
+**Example output:**
+
+```
+Total dialogs: 4821
+Translated:  3204
+Remaining:   1617
+```
+
+---
+
+## `dts settings`
+
+View or update per-project configuration stored in the project's `settings.json`. Pass one or more flags to change values; pass `--show` to print the current configuration without making any changes.
+
+<ParamField query="--provider" type="string">
+  Set the AI provider for this project. Accepted values: `gemini`, `ollama`, `groq`, `deepinfra`, `together`, `anthropic`, `openai`.
+</ParamField>
+
+<ParamField query="--model" type="string">
+  Set the model name to use with the selected provider (e.g. `gemini-2.5-flash`, `llama3.1`).
+</ParamField>
+
+<ParamField query="--chunk-size" type="integer">
+  Set the default number of dialogue strings per translation batch.
+</ParamField>
+
+<ParamField query="--show" type="flag">
+  Print the current project settings (provider, model, chunk size, directory, and number of configured API keys) without making changes.
+</ParamField>
+
+```bash
+# Show current project settings
+dts settings --show
+
+# Switch to the Ollama provider with a local model
+dts settings --provider ollama --model llama3.1
+
+# Change chunk size only
+dts settings --chunk-size 100
+```
+
+---
+
+## `dts config`
+
+View or update global application configuration stored in the OS user-config directory (`%APPDATA%\dts\settings.json` on Windows, `~/.config/dts/settings.json` elsewhere). This is where API keys and Ollama connection settings live; they are shared across all projects.
+
+<ParamField query="--add-key" type="string">
+  Add a Gemini API key to the application's key pool. Multiple keys enable round-robin rotation on failures.
+</ParamField>
+
+<ParamField query="--ollama-host" type="string">
+  Set the Ollama server hostname or base URL (e.g. `http://192.168.1.10`).
+</ParamField>
+
+<ParamField query="--ollama-timeout" type="integer">
+  Set the Ollama request timeout in seconds. Default: `120`.
+</ParamField>
+
+<ParamField query="--show" type="flag">
+  Print a summary of all configured providers (key counts), the Ollama host and port, and the UMT directory path.
+</ParamField>
+
+```bash
+# Show current app configuration
+dts config --show
+
+# Add a Gemini API key
+dts config --add-key AIza...
+
+# Point DTS at a remote Ollama instance
+dts config --ollama-host http://192.168.1.10
+
+# Increase Ollama timeout for slow hardware
+dts config --ollama-timeout 300
+```

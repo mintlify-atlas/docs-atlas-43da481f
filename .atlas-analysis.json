@@ -1,0 +1,75 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "DTS — Dialogue Translation System",
+  "projectDescription": "An automated CLI and GUI tool for bulk translation of GameMaker (Undertale/Deltarune) dialogue strings using multiple AI providers.",
+  "theme": "luma",
+  "primaryColor": "#adff00",
+  "lightColor": "#7c7c7c",
+  "darkColor": "#080808",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Usage",
+            "pages": [
+              "cli-reference",
+              "gui-guide",
+              "workflow"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "providers",
+              "configuration",
+              "umt-integration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-provider AI translation: Gemini, OpenAI, Anthropic, Groq, DeepInfra, Together AI, and local Ollama",
+    "Both CLI (Click-based) and GUI (ttkbootstrap) interfaces",
+    "Project-based workflow with per-project settings and file paths",
+    "Automated pipeline: extract strings → translate in chunks → normalize → export",
+    "Automatic API key rotation and retry logic for resilience",
+    "Post-processing: normalizer, void cleaner, manual edit workflow",
+    "UndertaleModTool (UMT) integration for extracting/reinserting data.win strings",
+    "Special command preservation (\\XX, $~X, ~X, ^X) during translation"
+  ],
+  "publicApiSurface": [
+    "dts input-generate",
+    "dts run [--chunk-size N]",
+    "dts apply",
+    "dts fix",
+    "dts normalice [--secure] [--old]",
+    "dts voids",
+    "dts clean",
+    "dts merge",
+    "dts pull-manual",
+    "dts apply-manual",
+    "dts view",
+    "dts settings [--provider] [--model] [--chunk-size] [--show]",
+    "dts config [--add-key] [--ollama-host] [--ollama-timeout] [--show]",
+    "GeminiProvider",
+    "OllamaProvider",
+    "OpenAICompatibleProvider",
+    "AnthropicProvider",
+    "create_provider(app_config, project_config)",
+    "ProjectConfig",
+    "AppConfig",
+    "Project"
+  ]
+}
