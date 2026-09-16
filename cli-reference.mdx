@@ -1,5 +1,5 @@
 ---
-title: "DTS CLI Command Reference"
+title: "DTS CLI Reference: All Commands, Flags, and Examples"
 sidebarTitle: "CLI Reference"
 description: "Complete reference for every DTS command-line command, flags, defaults, and usage examples for translating GameMaker dialogue strings."
 ---
@@ -256,8 +256,8 @@ Remaining:   1617
 
 View or update per-project configuration stored in the project's `settings.json`. Pass one or more flags to change values; pass `--show` to print the current configuration without making any changes.
 
-<ParamField query="--provider" type="string">
-  Set the AI provider for this project. Accepted values: `gemini`, `ollama`, `groq`, `deepinfra`, `together`, `anthropic`, `openai`.
+<ParamField query="--provider" type="choice">
+  Set the AI provider for this project. Accepted values: `gemini`, `ollama`. These are the only valid choices enforced by the CLI. Additional providers (Groq, DeepInfra, Together AI, Anthropic, OpenAI) can be configured through the GUI settings but are not selectable via this flag.
 </ParamField>
 
 <ParamField query="--model" type="string">

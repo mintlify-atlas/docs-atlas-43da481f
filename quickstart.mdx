@@ -1,5 +1,5 @@
 ---
-title: "Get Started with DTS in 5 Minutes"
+title: "DTS Quickstart: Translate GameMaker Strings via CLI"
 sidebarTitle: "Quickstart"
 description: "Extract, translate, normalize, and apply GameMaker dialogue strings end-to-end using the DTS CLI — from a raw data.win to a finished strings_es.json."
 ---
@@ -55,7 +55,11 @@ Before you begin, make sure you have:
     dts config --show
     ```
 
-    You should see `1/1 keys active` listed under the `gemini` provider. If you prefer a different provider, configure it through `dts settings` or the GUI settings panel.
+    You should see `1/1 keys active` listed under the `gemini` provider.
+
+    <Note>
+      `dts config --add-key` adds keys **only for the Gemini provider**. To add API keys for OpenAI, Anthropic, Groq, DeepInfra, or Together AI, use the GUI settings panel — those providers have no CLI key-management command. To switch between the Gemini and Ollama providers from the CLI, use `dts settings --provider gemini` or `dts settings --provider ollama`; all other provider switches also require the GUI.
+    </Note>
   </Step>
 
   <Step title="Generate the translation input file">

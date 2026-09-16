@@ -175,7 +175,7 @@ The port defaults to `11434` and is managed through the GUI **Global Settings �
 ### Available Models
 
 <Note>
-  DTS calls `ollama.Client.list()` at runtime to enumerate available models. The model list is populated **automatically** from whatever models you have pulled locally — there is no fixed list. Any model returned by `ollama list` on your system will appear in the model selector.
+  DTS calls `ollama.Client.list()` at runtime to check availability and enumerate models. The model list is populated **automatically** from whatever models you have pulled locally — there is no fixed list. Any model returned by `ollama list` on your system will appear in the model selector. If Ollama is not running or unreachable, `is_available()` returns `false`.
 </Note>
 
 ```bash
@@ -212,12 +212,11 @@ dts settings --provider ollama
 
 ## API Key Rotation
 
-When multiple API keys are configured for a provider, DTS's `ApiKeyManager` rotates through them automatically on failure. On each retry attempt, `rotate()` is called and the next key in the list is used. This is particularly useful for providers with free-tier rate limits such as Gemini, where you might register several keys from different accounts.
+When multiple API keys are configured for a provider, DTS's `ApiKeyManager` rotates through them automatically. At the start of each attempt `next_key()` advances the internal counter and returns the next key; if that attempt fails, `rotate()` advances the counter once more before the next retry. This means successive attempts do not step through keys one-by-one — each failure causes an extra skip so that a persistently bad key is less likely to be retried immediately. This is particularly useful for providers with free-tier rate limits such as Gemini, where you might register several keys from different accounts.
 
 ```
-Attempt 1 → key[0]  → quota exceeded
-Rotate    → key[1]
-Attempt 2 → key[1]  → success ✓
+Attempt 1 → next_key() → key[0]  → quota exceeded → rotate() skips ahead
+Attempt 2 → next_key() → key[2]  → success ✓
 ```
 
 All providers except Ollama (which needs no key) benefit from this rotation. You can enable or disable individual keys per provider through the GUI without removing them.

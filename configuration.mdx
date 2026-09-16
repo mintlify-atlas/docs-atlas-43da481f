@@ -114,7 +114,7 @@ dts config --ollama-timeout 240
   "chunk_size": 200,
   "provider": "gemini",
   "prompt": "",
-  "model": "gemini-3.5-flash",
+  "model": "gemini-2.5-flash",
   "single_translate": false,
   "umt_directory": ""
 }
@@ -162,7 +162,7 @@ dts config --ollama-timeout 240
   Custom system prompt prepended to every translation batch. When empty, DTS uses the built-in default prompt that instructs the model to preserve GameMaker commands (`\\XX`, `$~X`, `~X`, `^X`), suffixes (`/`, `%`, `/%`), and JSON structure.
 </ParamField>
 
-<ParamField path="model" type="string" default="gemini-3.5-flash">
+<ParamField path="model" type="string" default="gemini-2.5-flash">
   Model identifier passed to the provider. Must be a valid model for the selected `provider`.
 </ParamField>
 

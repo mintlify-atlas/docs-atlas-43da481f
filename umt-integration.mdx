@@ -51,7 +51,7 @@ During extraction, DTS invokes `UndertaleModCli.exe load <data.win> --scripts Ex
             └── ImportAllStringsJSON.csx
     ```
 
-    You can verify the installation from the GUI (**Global Settings → UMT** tab), which reports CLI, export script, and import script status as ✓ or ✗. DTS also calls `UndertaleModCli.exe --version` to confirm the executable works.
+    You can verify the installation from the GUI (**Global Settings → UMT** tab), which calls `umt_status()` and reports CLI, export script, and import script status as ✓ or ✗. DTS also runs `UndertaleModCli.exe --version` via `verify_umt()` to confirm the executable works.
   </Step>
 
   <Step title="Configure the UMT directory in DTS">
@@ -106,11 +106,11 @@ When `extract_strings()` is called, DTS:
 5. After the process exits, verifies that the output `strings.json` exists and is non-empty.
 6. Removes the temporary `__dts_temp_umt_output.win` file created during script execution.
 
-Re-import (`import_strings()`) follows the same pattern with `ImportAllStringsJSON.csx`, writing the final patched `data.win` to `output_win_path`. If the import script is absent, DTS retries using the `--replace-strings <data.win> <strings.json> <output.win>` CLI flag as a fallback.
+Re-import (`import_strings()` / `replace_strings()`) follows the same pattern with `ImportAllStringsJSON.csx`, writing the final patched `data.win` to `output_win_path`. Note that `import_strings()` is an alias for `replace_strings()` — both functions perform the same operation. If the import script is absent, DTS retries using the `--replace-strings <data.win> <strings.json> <output.win>` CLI flag as a fallback.
 
 <CardGroup cols={2}>
   <Card title="UMT Status Check" icon="circle-check">
-    DTS calls `umt_status()` before any operation and reports individual status for the CLI executable, export script, and import script — so you can diagnose partial installations at a glance.
+    `umt_status(directory)` returns `(cli_ok, export_script_ok, info_string)` and is used by the GUI to report the status of the CLI executable, export script, and import script. `is_umt_configured(directory)` returns a simple boolean indicating whether the CLI and export script are both present — this is the check used before extraction.
   </Card>
   <Card title="Timeout Protection" icon="clock">
     All UMT subprocess calls enforce a configurable timeout (default: 120 s). If UMT hangs, DTS kills the process and returns a clear error rather than blocking indefinitely.

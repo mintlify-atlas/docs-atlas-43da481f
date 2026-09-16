@@ -1,5 +1,5 @@
 ---
-title: "Using the DTS Graphical Interface"
+title: "Using the DTS Graphical Interface: A Complete GUI Guide"
 sidebarTitle: "GUI Guide"
 description: "A complete walkthrough of the DTS GUI: welcome screen, project tabs, translation controls, review workflow, export options, and global settings."
 ---
@@ -64,7 +64,7 @@ Below the buttons, a **Proyectos recientes** (Recent projects) panel shows up to
 
 ## Project View
 
-After opening or creating a project, the main project view appears with five tabs across the top.
+After opening or creating a project, the main project view appears with four tabs across the top.
 
 ### Resumen (Overview)
 
@@ -145,7 +145,7 @@ The Review tab provides an inline editing workflow for translations that need hu
 |---------|-----------|
 | **Pull pendientes** | Runs the same logic as `dts pull-manual`: generates `lang_manual_edit.json` with all untranslated keys. |
 | **Guardar cambios** | Applies every entry in `lang_manual_edit.json` into `lang_es_out.json` (equivalent to `dts apply-manual`). |
-| **Mostrar solo pendientes** | Toggle that filters the table to show only rows that need attention. On by default. |
+| **Mostrar solo pendientes de revisión** | Toggle that filters the table to show only rows that need attention. On by default. |
 
 **Table colour coding:**
 - Dark orange background — key is untranslated or has a pending manual edit
@@ -198,14 +198,6 @@ Multiple API keys can be added to providers that support it (e.g. Gemini). DTS r
 - **Timeout (s)** — request timeout in seconds (default: `120`)
 - **Detectar modelos instalados** — queries the Ollama API and lists all locally available models with enable/disable toggles
 
-### Project Tab (Configuración del Proyecto)
-
-A read-only summary of the currently open project's configuration: provider, model, chunk size, and all file paths (`strings.json`, `lang_input.json`, `lang_es_out.json`, `lang_es_normalize.json`, `strings_es.json`).
-
-<Note>
-  File paths shown here are relative to the project directory. They can only be changed by editing `settings.json` directly.
-</Note>
-
 ### UMT Tab (Motor — UMT)
 
 Configuration for **UndertaleModTool CLI**, the external tool DTS uses to extract strings from and re-import strings into `data.win` files.
@@ -218,3 +210,11 @@ The tab shows three status lines that update as you type a directory path:
 **Manual method:** Type or browse to the folder where you have UMT installed, then click **Verificar** to confirm all required files are found.
 
 **Automatic download:** Click **Descargar UMT CLI** to download the platform-appropriate build directly from the GitHub release (`v0.9.1.1` for Windows, Linux, or macOS). A progress dialog shows download speed and extraction status. The directory field is updated automatically on success.
+
+### Project Tab (Configuracion del Proyecto)
+
+A read-only summary of the currently open project's configuration: provider, model, chunk size, and all file paths (`strings.json`, `lang_input.json`, `lang_es_out.json`, `lang_es_normalize.json`, `strings_es.json`). This tab is disabled when no project is open.
+
+<Note>
+  File paths shown here are relative to the project directory. They can only be changed by editing `settings.json` directly.
+</Note>

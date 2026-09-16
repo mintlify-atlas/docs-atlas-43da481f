@@ -1,5 +1,5 @@
 ---
-title: "End-to-End Translation Workflow"
+title: "DTS End-to-End Translation Workflow: Full Pipeline Guide"
 sidebarTitle: "Workflow"
 description: "Step-by-step guide to the full DTS pipeline: from extracting strings.json to exporting a translated data.win or strings_es.json file."
 ---
@@ -24,11 +24,10 @@ lang_es_out.json  ────────────────────�
     │
     ├─► [dts voids]   remove empty/invalid entries
     ├─► [dts clean]   strip AI key-prefix artifacts
+    ├─► [dts merge]   back-fill any untranslated keys from lang_input.json
     │
     ▼  [dts normalice]
 lang_es_normalize.json  ──────────────────────── (typographically clean translations)
-    │
-    ├─► [dts merge]   back-fill any untranslated keys from lang_input.json
     │
     ▼  [dts apply]
 strings_es.json  ─────────────────────────────── (translated GameMaker string table)
@@ -98,8 +97,19 @@ data_es.win  ──────────────────────�
     `dts voids` compares each translated value against its original. Entries that are blank (but whose original is not), or that consist of only a command prefix with fewer than four meaningful characters, are removed from `lang_es_out.json`. `dts clean` strips prefixes like `traduccion_` or `Traducción_` that some models prepend to their output.
   </Step>
 
+  <Step title="(Optional) Merge to fill gaps">
+    If some dialogue keys are still untranslated (the AI skipped them or they were removed by `voids`), run `dts merge` to back-fill them from `lang_input.json` so the output file is complete. This step must be done **before** `dts normalice`, because merge reads from and writes to `lang_es_out.json`.
+
+    ```bash
+    dts merge
+    # → Merged
+    ```
+
+    This overlays `lang_es_out.json` on top of `lang_input.json`, meaning translated entries take priority and any missing key is filled with its original English text. The merged result replaces `lang_es_out.json`.
+  </Step>
+
   <Step title="Normalize the translations">
-    Run `dts normalice` to convert typographic characters to their plain equivalents and write the result to `lang_es_normalize.json`.
+    Run `dts normalice` to convert typographic characters to their plain equivalents and write the result to `lang_es_normalize.json`. It reads from `lang_es_out.json` and writes to `lang_es_normalize.json` — the source file is left untouched.
 
     ```bash
     # Convert curly quotes to straight quotes (recommended default)
@@ -110,19 +120,6 @@ data_es.win  ──────────────────────�
     ```
 
     The default normalizer replaces Unicode curly quotes (`"`, `"`, `'`, `'`) with straight ASCII equivalents. With `--secure` it additionally maps accented vowels (á → a, é → e, etc.), ñ → n, ü → u, and removes inverted punctuation (¡, ¿), then strips any remaining non-ASCII bytes. Use `--secure` if your target GameMaker engine does not support extended characters.
-
-    `lang_es_out.json` is left untouched; the cleaned output goes to `lang_es_normalize.json`.
-  </Step>
-
-  <Step title="(Optional) Merge to fill gaps">
-    If some dialogue keys are still untranslated (the AI skipped them or they were removed by `voids`), run `dts merge` to back-fill them from `lang_input.json` so the output file is complete:
-
-    ```bash
-    dts merge
-    # → Merged
-    ```
-
-    This overlays `lang_es_out.json` on top of `lang_input.json`, meaning translated entries take priority and any missing key is filled with its original English text. The merged result replaces `lang_es_out.json`.
   </Step>
 
   <Step title="Apply translations to produce strings_es.json">
